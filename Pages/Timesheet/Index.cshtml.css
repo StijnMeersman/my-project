@@ -1,0 +1,36 @@
+/* The grid is five day columns plus a project column that carries a name, a client and badges, so
+   the day columns have to be kept narrow or the project column collapses. */
+
+.ts-grid {
+    table-layout: fixed;
+    min-width: 60rem;
+}
+
+.ts-project {
+    width: 18rem;
+}
+
+.ts-cell {
+    vertical-align: top;
+}
+
+/* hh:mm is five characters; anything wider just invites decimal hours (ADR-0003). */
+.ts-hours {
+    max-width: 6rem;
+    margin-left: auto;
+}
+
+/* The note is secondary to the hours and reads that way until it has something in it. */
+.ts-note {
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
+}
+
+    .ts-note:not(:focus):placeholder-shown {
+        background-color: transparent;
+        border-color: transparent;
+    }
+
+    .ts-note:not(:focus):placeholder-shown:hover {
+        border-color: var(--bs-border-color);
+    }

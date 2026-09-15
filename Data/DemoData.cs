@@ -11,6 +11,11 @@ namespace my_project.Data;
 /// SC-017), with hours spread across draft, submitted and approved weeks to show that all of them
 /// count (FR-014, SC-018).
 /// </para>
+/// <para>
+/// Those past weeks now also carry their <see cref="WeekRow"/>s, because spec 005 §5.2 has every
+/// entry sitting on a row. The current week gets rows but no hours, so "My week" opens on a grid
+/// that is ready to type into without moving any of the budget figures above.
+/// </para>
 /// </summary>
 public static class DemoData
 {
@@ -47,7 +52,7 @@ public static class DemoData
 
         // Three consecutive past weeks, each in a different state, so the project list can be
         // checked against the claim that burned hours ignores status entirely.
-        var thisMonday = MondayOf(DateOnly.FromDateTime(now.UtcDateTime));
+        var thisMonday = Week.StartOf(DateOnly.FromDateTime(now.UtcDateTime));
         var weeks = new[]
         {
             (Start: thisMonday.AddDays(-21), Status: TimesheetWeekStatus.Approved),
@@ -79,8 +84,23 @@ public static class DemoData
         AddWeekdayEntries(db, kit.Id, portal.Id, weeks[2].Start, minutesPerDay: 360, days: 5, now);     // 30:00
         AddWeekdayEntries(db, robin.Id, portal.Id, weeks[2].Start, minutesPerDay: 180, days: 1, now);   //  3:00
 
+        // The week the grid opens on: rows waiting, nothing logged against them yet. Sam's two
+        // projects are one within budget and one already over it, so the remaining column shows both
+        // a healthy figure and a negative one straight away (FR-018, FR-021).
+        AddRow(db, sam.Id, redesign.Id, thisMonday, now);
+        AddRow(db, sam.Id, retainer.Id, thisMonday, now);
+        AddRow(db, kit.Id, portal.Id, thisMonday, now);
+
         await db.SaveChangesAsync();
     }
+
+    private static void AddRow(
+        TimeRegistrationDbContext db,
+        Guid personId,
+        Guid projectId,
+        DateOnly weekStart,
+        DateTimeOffset now) =>
+        db.WeekRows.Add(WeekRow.Create(personId, weekStart, projectId, now).Value);
 
     private static void AddWeekdayEntries(
         TimeRegistrationDbContext db,
@@ -91,6 +111,10 @@ public static class DemoData
         int days,
         DateTimeOffset now)
     {
+        // Every call here is a distinct (person, project, week), so one row per call is exactly what
+        // the unique index allows.
+        AddRow(db, personId, projectId, weekStart, now);
+
         for (var day = 0; day < days; day++)
         {
             db.TimeEntries.Add(TimeEntry.Create(
@@ -102,7 +126,4 @@ public static class DemoData
                 now));
         }
     }
-
-    private static DateOnly MondayOf(DateOnly date) =>
-        date.AddDays(-((int)date.DayOfWeek + 6) % 7);
 }

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using my_project.Data;
 
@@ -10,9 +11,11 @@ using my_project.Data;
 namespace my_project.Data.Migrations
 {
     [DbContext(typeof(TimeRegistrationDbContext))]
-    partial class TimeRegistrationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260915131014_WeeklyTimeGrid")]
+    partial class WeeklyTimeGrid
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");

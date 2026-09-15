@@ -24,6 +24,9 @@
                             <a class="nav-link text-dark" asp-area="" asp-page="/Index">Home</a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-page="/Timesheet/Index">My week</a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-page="/Projects/Index">Projects</a>
                         </li>
                         @if (CurrentUser.IsManager)
@@ -40,17 +43,25 @@
                         </li>
                     </ul>
                     @* Stands in for signing in until the authentication story exists (spec 001 §10 Q1). *@
-                    <form method="post" asp-page="/SwitchRole" class="d-flex align-items-center gap-2">
-                        <span class="navbar-text small">Viewing as</span>
-                        <select name="role" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
-                            @foreach (var role in Enum.GetValues<PersonRole>())
-                            {
-                                <option value="@role" selected="@(role == CurrentUser.Role)">@role</option>
-                            }
-                        </select>
-                        <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                        <noscript><button type="submit" class="btn btn-sm btn-outline-secondary">Switch</button></noscript>
-                    </form>
+                    @{
+                        var switchablePeople = await People.ListAsync();
+                    }
+                    @if (switchablePeople.Count > 0)
+                    {
+                        <form method="post" asp-page="/SwitchUser" class="d-flex align-items-center gap-2">
+                            <span class="navbar-text small">Signed in as</span>
+                            <select name="personId" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+                                @foreach (var person in switchablePeople)
+                                {
+                                    <option value="@person.Id" selected="@(person.Id == CurrentUser.PersonId)">
+                                        @person.FullName (@person.Role)
+                                    </option>
+                                }
+                            </select>
+                            <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                            <noscript><button type="submit" class="btn btn-sm btn-outline-secondary">Switch</button></noscript>
+                        </form>
+                    }
                 </div>
             </div>
         </nav>
