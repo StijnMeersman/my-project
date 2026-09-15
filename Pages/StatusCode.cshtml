@@ -1,0 +1,9 @@
+@page
+@model my_project.Pages.StatusCodeModel
+@{
+    ViewData["Title"] = Model.Heading;
+}
+
+<h1>@Model.Heading</h1>
+<p class="text-muted">@Model.Explanation</p>
+<p><a asp-page="/Projects/Index">Back to projects</a></p>

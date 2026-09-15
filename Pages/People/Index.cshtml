@@ -1,0 +1,76 @@
+@page
+@model my_project.Pages.People.IndexModel
+@{
+    ViewData["Title"] = "People";
+}
+
+<h1>People</h1>
+<p class="text-muted">
+    Everyone who can be assigned to a project. A person is a record here, not a login — signing in
+    comes with a later story.
+</p>
+
+@if (Model.Confirmation is not null)
+{
+    <div class="alert alert-success" role="status">@Model.Confirmation</div>
+}
+
+<div class="row">
+    <div class="col-md-5">
+        <form method="post" class="mb-4">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="mb-3">
+                <label asp-for="Input.FullName" class="form-label"></label>
+                <input asp-for="Input.FullName" class="form-control" autofocus />
+                <span asp-validation-for="Input.FullName" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.Email" class="form-label"></label>
+                <input asp-for="Input.Email" class="form-control" type="email" />
+                <span asp-validation-for="Input.Email" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.Role" class="form-label"></label>
+                <select asp-for="Input.Role" asp-items="Html.GetEnumSelectList<PersonRole>()" class="form-select"></select>
+                <span asp-validation-for="Input.Role" class="text-danger"></span>
+            </div>
+            <button type="submit" class="btn btn-primary">Add person</button>
+        </form>
+    </div>
+
+    <div class="col-md-7">
+        @if (Model.People.Count == 0)
+        {
+            <div class="alert alert-light border" role="status">
+                Nobody yet. Add a person so there is someone to assign to a project.
+            </div>
+        }
+        else
+        {
+            <table class="table">
+                <caption class="visually-hidden">People in the organisation</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col">Email</th>
+                        <th scope="col">Role</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var person in Model.People)
+                    {
+                        <tr>
+                            <td>@person.FullName</td>
+                            <td>@person.Email.Value</td>
+                            <td>@person.Role</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

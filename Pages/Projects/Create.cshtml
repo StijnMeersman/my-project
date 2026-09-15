@@ -1,0 +1,39 @@
+@page
+@model my_project.Pages.Projects.CreateModel
+@{
+    ViewData["Title"] = "New project";
+}
+
+<h1>New project</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <form method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="mb-3">
+                <label asp-for="Input.Name" class="form-label"></label>
+                <input asp-for="Input.Name" class="form-control" autofocus />
+                <span asp-validation-for="Input.Name" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.ClientId" class="form-label"></label>
+                <select asp-for="Input.ClientId" asp-items="Model.ClientOptions" class="form-select">
+                    <option value="">Choose a client…</option>
+                </select>
+                <span asp-validation-for="Input.ClientId" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.BudgetMinutes" class="form-label"></label>
+                <input asp-for="Input.BudgetMinutes" class="form-control" placeholder="120" inputmode="text" />
+                <div class="form-text">Hours, or <code>hh:mm</code> — <code>120</code> and <code>120:30</code> both work.</div>
+                <span asp-validation-for="Input.BudgetMinutes" class="text-danger"></span>
+            </div>
+            <button type="submit" class="btn btn-primary">Create project</button>
+            <a asp-page="Index" class="btn btn-link">Cancel</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

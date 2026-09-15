@@ -1,10 +1,47 @@
-﻿@page
+@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Time registration";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<h1 class="display-5">Time registration</h1>
+<p class="lead">
+    Hours always land on a project, every project has a budget set up front, and only assigned
+    people can log against it.
+</p>
+
+@if (CurrentUser.IsManager)
+{
+    <p class="text-muted">Setting up work takes three steps, in this order:</p>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="card h-100"><div class="card-body">
+                <h2 class="h5">1. Clients</h2>
+                <p class="card-text text-muted">Register the organisations you do work for.</p>
+                <a asp-page="/Clients/Index" class="btn btn-outline-primary btn-sm">Clients</a>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100"><div class="card-body">
+                <h2 class="h5">2. People</h2>
+                <p class="card-text text-muted">Add the people who will log hours.</p>
+                <a asp-page="/People/Index" class="btn btn-outline-primary btn-sm">People</a>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100"><div class="card-body">
+                <h2 class="h5">3. Projects</h2>
+                <p class="card-text text-muted">Create a project with a budget, and assign people to it.</p>
+                <a asp-page="/Projects/Index" class="btn btn-outline-primary btn-sm">Projects</a>
+            </div></div>
+        </div>
+    </div>
+}
+else
+{
+    <p><a asp-page="/Projects/Index" class="btn btn-primary">See projects</a></p>
+    <p class="text-muted">
+        Setting up clients, people and projects is a manager's job. Logging your own hours comes with
+        a later story.
+    </p>
+}

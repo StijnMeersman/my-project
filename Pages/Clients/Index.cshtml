@@ -1,0 +1,61 @@
+@page
+@model my_project.Pages.Clients.IndexModel
+@{
+    ViewData["Title"] = "Clients";
+}
+
+<h1>Clients</h1>
+<p class="text-muted">The organisations you do work for. Every project belongs to exactly one.</p>
+
+@if (Model.Confirmation is not null)
+{
+    <div class="alert alert-success" role="status">@Model.Confirmation</div>
+}
+
+<div class="row">
+    <div class="col-md-5">
+        <form method="post" class="mb-4">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="mb-3">
+                <label asp-for="Input.Name" class="form-label"></label>
+                <input asp-for="Input.Name" class="form-control" autofocus />
+                <span asp-validation-for="Input.Name" class="text-danger"></span>
+            </div>
+            <button type="submit" class="btn btn-primary">Register client</button>
+        </form>
+    </div>
+
+    <div class="col-md-7">
+        @if (Model.Clients.Count == 0)
+        {
+            <div class="alert alert-light border" role="status">
+                No clients yet. Register one to start creating projects.
+            </div>
+        }
+        else
+        {
+            <table class="table">
+                <caption class="visually-hidden">Registered clients</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col">Registered</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var client in Model.Clients)
+                    {
+                        <tr>
+                            <td>@client.Name</td>
+                            <td>@client.CreatedAt.ToLocalTime().ToString("d MMM yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -7,4 +7,23 @@
     <RootNamespace>my_project</RootNamespace>
   </PropertyGroup>
 
+  <!--
+    The web project sits at the repository root, so the Web SDK's default globbing would otherwise
+    compile the sibling test project's sources and obj folder into this assembly.
+  -->
+  <ItemGroup>
+    <Compile Remove="my-project.Tests\**" />
+    <Content Remove="my-project.Tests\**" />
+    <EmbeddedResource Remove="my-project.Tests\**" />
+    <None Remove="my-project.Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
+  </ItemGroup>
+
 </Project>

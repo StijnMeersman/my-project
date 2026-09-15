@@ -19,7 +19,7 @@
 | Field           | Value                                                                |
 | --------------- | -------------------------------------------------------------------- |
 | Feature ID      | 001                                                                  |
-| Status          | Draft                                                                |
+| Status          | Implemented (2026-09-15)                                             |
 | Author          | stijn                                                                |
 | Created         | 2026-09-15                                                           |
 | Last updated    | 2026-09-15                                                           |
@@ -350,9 +350,13 @@ A funded container for work. Every logged hour belongs to exactly one project.
 | id          | UUID     | PK, generated                                             |                                              |
 | name        | string   | required, trimmed, 1–200 chars, unique per client (case-insensitive) |                                    |
 | clientId    | UUID     | required, FK → Client                                     | Exactly one, never null                      |
-| budgetHours | Hours    | required, > 0, ≤ 100 000                                  | The predefined budget set by the manager     |
+| budgetMinutes | Duration | required, > 0, ≤ 100 000 hours                          | The predefined budget set by the manager     |
 | createdAt   | datetime | generated, immutable                                      |                                              |
 | updatedAt   | datetime | generated, updated on every edit                          | Supports the last-write-wins rule in EC-8    |
+
+> **Amended 2026-09-15.** `budgetHours: Hours` became `budgetMinutes: Duration` per
+> [spec 005 §5.3](005-weekly-time-grid.md) and [ADR-0003](../architecture/adr/0003-durations-as-whole-minutes.md).
+> A budget is still entered and displayed in hours; it is *held* in whole minutes.
 
 #### Assignment
 
@@ -370,9 +374,9 @@ it has no state of its own.
 #### TimeEntry — *referenced, not defined here*
 
 Owned by story 006 and specified in its own spec. This slice depends on only three things from
-it: a TimeEntry belongs to one **Project**, belongs to one **Person**, and carries an **hours**
-amount. Burned hours (§5.4) is derived by summing those amounts. Nothing in this spec constrains
-the rest of the TimeEntry model.
+it: a TimeEntry belongs to one **Project**, belongs to one **Person**, and carries a **duration**.
+Burned hours (§5.4) is derived by summing those durations. Nothing in this spec constrains the rest
+of the TimeEntry model.
 
 ### 5.2 Relationships
 
@@ -394,21 +398,32 @@ the rest of the TimeEntry model.
 
 Compared case-insensitively for uniqueness; stored as entered for display.
 
-#### Hours
+#### Duration
 
-A non-negative quantity of time used for both budgets and logged amounts.
+A non-negative quantity of time used for both budgets and logged amounts, held as a whole number of
+minutes.
 
-| Attribute | Type    | Constraints                                            |
-| --------- | ------- | ------------------------------------------------------ |
-| value     | decimal | ≥ 0, at most 2 decimal places, ≤ 100 000               |
+| Attribute | Type | Constraints                                     |
+| --------- | ---- | ----------------------------------------------- |
+| minutes   | int  | ≥ 0, ≤ 6 000 000 (100 000 hours)                |
 
-Remaining hours is *not* an Hours value object, because it may be negative (FR-015).
+Entered as either `hh:mm` ("120:30") or a decimal number of hours ("120", "7.5"), always parsed in
+the invariant culture. A value that does not land on a whole minute is **refused, not rounded**
+(EC-3). Displayed as `hh:mm`.
+
+Remaining hours is *not* a Duration, because it may be negative (FR-015); it is a signed minute
+count rendered with the same `hh:mm` format.
+
+> **Amended 2026-09-15.** This section replaces the original `Hours` value object
+> (decimal, 2 places). Twenty minutes is not representable as 2-decimal hours, and an integer sum
+> satisfies NFR-004 by construction. See [spec 005 §5.3](005-weekly-time-grid.md) and
+> [ADR-0003](../architecture/adr/0003-durations-as-whole-minutes.md).
 
 ### 5.4 Domain Rules and Invariants
 
 - **A project always has a client.** `clientId` is never null, at creation or after an edit
   (FR-006).
-- **A budget is always positive.** `budgetHours > 0` holds at creation *and* after every edit
+- **A budget is always positive.** `budgetMinutes > 0` holds at creation *and* after every edit
   (FR-005). A budget of zero or a negative budget is never valid.
 - **A budget may fall below what is already burned.** Budget is a plan, not a constraint on
   recorded reality. Lowering it below burned hours is accepted and puts the project over budget
@@ -416,9 +431,10 @@ Remaining hours is *not* an Hours value object, because it may be negative (FR-0
 - **Burned hours is derived, never stored.** `burnedHours = sum of hours of all TimeEntries for
   the project, regardless of status`. It is computed on read, so it can never drift from the
   entries it summarises (FR-014, FR-017). For a project with no entries it is `0`, not null.
-- **Burned hours is never negative.** It is a sum of non-negative Hours.
+- **Burned hours is never negative.** It is a sum of non-negative Durations.
 - **Remaining hours may be negative.** `remainingHours = budgetHours - burnedHours`. A negative
   value is the meaningful representation of an overrun and must not be clamped to zero (FR-015).
+  Because both sides are whole minutes, the subtraction is exact.
 - **Budget utilisation drives the list's warnings.** `utilisation = burnedHours / budgetHours`.
   A project is *over budget* when `burnedHours > budgetHours`, and *approaching budget* when
   `utilisation >= 0.90` and it is not yet over (FR-016, SC-017).
@@ -447,7 +463,7 @@ be project-wide should move there and be referenced from here instead.
 | NFR-001 | Performance   | The project list (FR-013) shall render in < 500 ms at p95 with 200 projects and 50 000 time entries, computing burned hours with a single aggregate query per page — not one query per project. |
 | NFR-002 | Security      | The Manager-role restriction (FR-018) shall be enforced server-side on every create, edit and assignment action. Hiding the UI is not sufficient.       |
 | NFR-003 | Consistency   | Burned and remaining hours shall be computed from live data on each read. No cached or precomputed totals, so the figures can never disagree with the underlying entries. |
-| NFR-004 | Accuracy      | Hour amounts shall be stored and summed as exact decimals with 2 decimal places. Floating-point accumulation is not acceptable: summing 1 000 entries must match the arithmetic sum exactly. |
+| NFR-004 | Accuracy      | Hour amounts shall be stored and summed as whole minutes (§5.3). Floating-point accumulation is not acceptable: summing 1 000 entries must match the arithmetic sum exactly. *(Amended 2026-09-15 — was "exact decimals with 2 decimal places"; see [ADR-0003](../architecture/adr/0003-durations-as-whole-minutes.md).)* |
 | NFR-005 | Scale         | The feature shall be designed for a single organisation of up to 100 people, 200 active projects and ~50 000 time entries per year. It is not multi-tenant. |
 | NFR-006 | Usability     | Creating a project shall require a single screen and no more than three inputs (name, client, budget), so setup is not a barrier to using the app.       |
 | NFR-007 | Traceability  | Project creation and every subsequent edit shall be timestamped (`createdAt`, `updatedAt`), so a surprising budget can at least be dated.                |
@@ -489,25 +505,30 @@ be project-wide should move there and be referenced from here instead.
 ### 9.1 Dependencies
 
 - **Authentication and current-user resolution** — FR-018 and NFR-002 require knowing who the
-  current user is and what role they hold. No story in the map covers this yet. Until it exists,
-  FR-018 can be implemented against a stubbed current user but cannot be fully verified. Tracked
-  as §10, Q1.
+  current user is and what role they hold. No story in the map covers this yet. Tracked as §10, Q1.
+  *Resolved for this slice:* the current user is stubbed behind `ICurrentUser`
+  ([ADR-0004](../architecture/adr/0004-stubbed-identity-until-authentication-lands.md)), which makes
+  FR-018 fully testable but is not access control. Real authentication is still required.
 - **Story 006 (TimeEntry)** — FR-014 sums time entries. Until the logging slice exists, every
   project correctly reports 0 hours burned (FR-017, SC-016), so this slice is independently
   shippable and demoable. SC-015, SC-017 and SC-018 cannot run until TimeEntry exists and should
-  be written against seeded entry data.
+  be written against seeded entry data. *Resolved as implemented:* `TimeEntry` and `TimesheetWeek`
+  exist as read dependencies only, shaped to specs 005 and 010 and documented as owned by them;
+  the acceptance tests seed entries directly.
 - **Story 004 (close/archive)** — will add a project lifecycle state and an accompanying filter to
   the list built here. This spec deliberately leaves room for it rather than pre-building it.
-- **Persistence approach** — no ADR exists yet (arc42 §9 is an empty template). This spec is
-  storage-agnostic; the first implementer should record their choice as an ADR.
+- **Persistence approach** — *resolved:* EF Core 10 on SQLite with checked-in migrations, recorded
+  as [ADR-0001](../architecture/adr/0001-ef-core-with-sqlite-for-persistence.md). The spec itself
+  remains storage-agnostic.
 
 ### 9.2 Constraints
 
 - ASP.NET Core Razor Pages on `net10.0`, nullable and implicit usings enabled.
 - New C# files must use `namespace my_project.*` — the project's `RootNamespace` is `my_project`
   (underscore) while the directory and assembly are `my-project`.
-- No test project exists yet. SUC-01 requires creating a sibling project (e.g. `my-project.Tests`)
-  and a `.sln`, since `my-project.csproj` is currently the only project.
+- ~~No test project exists yet.~~ *Done:* `my-project.Tests` (xUnit) and a solution file were added
+  for SUC-01 (`my-project.slnx`). The tests run against a real SQLite `:memory:` database, because every uniqueness rule
+  in this spec is carried by a unique index that the EF InMemory provider would not enforce.
 - The arc42 documentation set is a complete but entirely empty skeleton. This is the first feature
   to need crosscutting patterns (validation, error display, authorization), so whatever it
   establishes becomes the de facto project convention — it should be written back into §8.
@@ -524,15 +545,16 @@ establishes the first precedent rather than following one.
 | 5. Building Block View           | Introduces the first domain building blocks: Client, Person, Project, Assignment                                   |
 | 6. Runtime View                  | Create-project and assign-people are the first write flows worth documenting                                       |
 | 8. Crosscutting Concepts         | This feature sets the first patterns for input validation, uniqueness enforcement, error display and authorization  |
-| 9. Architecture Decisions (ADRs) | Needs ADRs for persistence and for the derived-not-stored burned-hours rule (§5.4)                                 |
-| 10. Quality Requirements         | NFR-001 and NFR-004 are strong candidates to be promoted to project-wide quality scenarios                         |
-| 12. Glossary                     | Client, Project, Person, Assignment, budget hours, burned hours, remaining hours should be entered here            |
+| 9. Architecture Decisions (ADRs) | **Written:** [ADR-0001](../architecture/adr/0001-ef-core-with-sqlite-for-persistence.md) persistence, [ADR-0002](../architecture/adr/0002-burned-hours-derived-never-stored.md) derived-not-stored burned hours (§5.4), [ADR-0003](../architecture/adr/0003-durations-as-whole-minutes.md) whole-minute durations, [ADR-0004](../architecture/adr/0004-stubbed-identity-until-authentication-lands.md) stubbed identity |
+| 10. Quality Requirements         | NFR-001 and NFR-004 are strong candidates to be promoted to project-wide quality scenarios — still to do           |
+| 11. Risks and Technical Debt     | **Written:** the stubbed identity, SQLite's single writer, and the re-aggregation cost are logged there            |
+| 12. Glossary                     | **Written:** Client, Project, Person, Assignment, budget / burned / remaining hours, Duration and the rest          |
 
 ## 10. Open Questions
 
 | #   | Question                                                                                                   | Owner | Status | Resolution                                                                                                   |
 | --- | ------------------------------------------------------------------------------------------------------------ | ----- | ------ | -------------------------------------------------------------------------------------------------------------- |
-| 1   | How is the current user established and signed in? FR-018 depends on it, and no story in the map covers auth. | stijn | Open   | Needs a new story in the map, or an explicit decision to stub the current user until one exists.                |
+| 1   | How is the current user established and signed in? FR-018 depends on it, and no story in the map covers auth. | stijn | **Deferred** | Stubbed for now: `ICurrentUser` with a dev-only cookie role switcher, so FR-018 is enforced and tested server-side without guessing at a scheme ([ADR-0004](../architecture/adr/0004-stubbed-identity-until-authentication-lands.md)). **This is not access control** — a story for real authentication is still needed before deployment. |
 | 2   | Can clients and people be edited or deactivated after creation (correct a name, change a role, handle a leaver)? | stijn | Open   | Deferred out of this slice (§1.3). Likely a follow-up story; project editing (FR-008) is covered here.           |
 
 ---

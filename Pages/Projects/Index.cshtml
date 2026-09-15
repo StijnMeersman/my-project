@@ -1,0 +1,92 @@
+@page
+@model my_project.Pages.Projects.IndexModel
+@{
+    ViewData["Title"] = "Projects";
+}
+
+<div class="d-flex justify-content-between align-items-start">
+    <div>
+        <h1>Projects</h1>
+        <p class="text-muted">
+            Budget against hours burned, counted from every entry logged — draft, submitted or
+            approved alike — so an overrun shows up before a week is even handed in.
+        </p>
+    </div>
+    @if (CurrentUser.IsManager)
+    {
+        <a asp-page="Create" class="btn btn-primary text-nowrap">New project</a>
+    }
+</div>
+
+@if (Model.Projects.Count == 0)
+{
+    <div class="alert alert-light border" role="status">
+        <p class="mb-2">No projects yet.</p>
+        @if (CurrentUser.IsManager)
+        {
+            <p class="mb-0">
+                Register a <a asp-page="/Clients/Index">client</a> first, then
+                <a asp-page="Create">create a project</a> with a budget of hours.
+            </p>
+        }
+        else
+        {
+            <p class="mb-0">A manager needs to create one before hours can be logged.</p>
+        }
+    </div>
+}
+else
+{
+    <table class="table align-middle">
+        <caption class="visually-hidden">All projects with budget, hours burned and hours remaining</caption>
+        <thead>
+            <tr>
+                <th scope="col">Project</th>
+                <th scope="col">Client</th>
+                <th scope="col" class="text-end">Budget</th>
+                <th scope="col" class="text-end">Burned</th>
+                <th scope="col" class="text-end">Remaining</th>
+                <th scope="col">Assigned</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var project in Model.Projects)
+            {
+                var budget = project.Budget;
+                <tr class="@RowClass(budget.Status)">
+                    <th scope="row" class="fw-normal">
+                        <a asp-page="Details" asp-route-id="@project.Id">@project.Name</a>
+                        @if (budget.Status != BudgetStatus.WithinBudget)
+                        {
+                            <span class="badge @BadgeClass(budget.Status) ms-2">@BadgeText(budget.Status)</span>
+                        }
+                    </th>
+                    <td>@project.ClientName</td>
+                    <td class="text-end font-monospace">@Duration.ToHhMm(budget.BudgetMinutes)</td>
+                    <td class="text-end font-monospace">@Duration.ToHhMm(budget.BurnedMinutes)</td>
+                    <td class="text-end font-monospace @(budget.RemainingMinutes < 0 ? "text-danger fw-bold" : null)">
+                        @Duration.ToHhMm(budget.RemainingMinutes)
+                    </td>
+                    <td>@project.AssignedPeopleCount</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <p class="text-muted small">Hours are shown as <code>hh:mm</code>. A negative remaining figure is an overrun.</p>
+}
+
+@functions {
+    // FR-016: the two states that need to be noticed at a glance, and nothing else highlighted.
+    static string? RowClass(BudgetStatus status) => status switch
+    {
+        BudgetStatus.OverBudget => "table-danger",
+        BudgetStatus.ApproachingBudget => "table-warning",
+        _ => null,
+    };
+
+    static string BadgeClass(BudgetStatus status) =>
+        status == BudgetStatus.OverBudget ? "text-bg-danger" : "text-bg-warning";
+
+    static string BadgeText(BudgetStatus status) =>
+        status == BudgetStatus.OverBudget ? "Over budget" : "Approaching budget";
+}

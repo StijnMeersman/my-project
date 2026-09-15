@@ -1,0 +1,151 @@
+@page "{id:guid}"
+@model my_project.Pages.Projects.DetailsModel
+@{
+    ViewData["Title"] = Model.Project.Name;
+    var budget = Model.Project.Budget;
+}
+
+<nav aria-label="Breadcrumb">
+    <a asp-page="Index">&larr; All projects</a>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start mt-2">
+    <div>
+        <h1 class="mb-0">@Model.Project.Name</h1>
+        <p class="text-muted">for @Model.Project.ClientName</p>
+    </div>
+    @if (CurrentUser.IsManager)
+    {
+        <a asp-page="Edit" asp-route-id="@Model.Project.Id" class="btn btn-outline-secondary text-nowrap">Edit project</a>
+    }
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="card"><div class="card-body">
+            <div class="text-muted small text-uppercase">Budget</div>
+            <div class="fs-4 font-monospace">@Duration.ToHhMm(budget.BudgetMinutes)</div>
+        </div></div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card"><div class="card-body">
+            <div class="text-muted small text-uppercase">Burned</div>
+            <div class="fs-4 font-monospace">@Duration.ToHhMm(budget.BurnedMinutes)</div>
+        </div></div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card @(budget.Status == BudgetStatus.OverBudget ? "border-danger" : budget.Status == BudgetStatus.ApproachingBudget ? "border-warning" : null)">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">Remaining</div>
+                <div class="fs-4 font-monospace @(budget.RemainingMinutes < 0 ? "text-danger" : null)">
+                    @Duration.ToHhMm(budget.RemainingMinutes)
+                </div>
+                @if (budget.Status == BudgetStatus.OverBudget)
+                {
+                    <span class="badge text-bg-danger">Over budget</span>
+                }
+                else if (budget.Status == BudgetStatus.ApproachingBudget)
+                {
+                    <span class="badge text-bg-warning">Approaching budget</span>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<h2 class="h4">Assigned people</h2>
+<p class="text-muted">Only the people listed here can log hours against this project.</p>
+
+<div asp-validation-summary="All" class="text-danger"></div>
+
+@if (Model.AwaitingConfirmation is { } pending)
+{
+    <div class="alert alert-warning" role="alert">
+        <p>
+            <strong>@pending.FullName</strong> has logged
+            <span class="font-monospace">@Duration.ToHhMm(pending.LoggedMinutes)</span> against this project.
+            Removing the assignment stops them logging any more; those hours stay on the project and
+            keep counting toward the budget.
+        </p>
+        <form method="post" asp-page-handler="Unassign" class="d-inline">
+            <input type="hidden" name="personId" value="@pending.PersonId" />
+            <input type="hidden" name="confirmed" value="true" />
+            <button type="submit" class="btn btn-warning">Remove anyway</button>
+        </form>
+        <a asp-page="Details" asp-route-id="@Model.Project.Id" class="btn btn-link">Keep the assignment</a>
+    </div>
+}
+
+@if (Model.Project.AssignedPeople.Count == 0)
+{
+    <div class="alert alert-light border" role="status">Nobody is assigned yet, so nobody can log hours here.</div>
+}
+else
+{
+    <table class="table align-middle">
+        <caption class="visually-hidden">People assigned to this project</caption>
+        <thead>
+            <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Email</th>
+                <th scope="col">Role</th>
+                <th scope="col" class="text-end">Logged here</th>
+                @if (CurrentUser.IsManager)
+                {
+                    <th scope="col"><span class="visually-hidden">Actions</span></th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var person in Model.Project.AssignedPeople)
+            {
+                <tr>
+                    <th scope="row" class="fw-normal">@person.FullName</th>
+                    <td>@person.Email</td>
+                    <td>@person.Role</td>
+                    <td class="text-end font-monospace">@Duration.ToHhMm(person.LoggedMinutes)</td>
+                    @if (CurrentUser.IsManager)
+                    {
+                        <td class="text-end">
+                            <form method="post" asp-page-handler="Unassign">
+                                <input type="hidden" name="personId" value="@person.PersonId" />
+                                <input type="hidden" name="confirmed" value="false" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                            </form>
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (CurrentUser.IsManager)
+{
+    <h3 class="h5 mt-4">Assign people</h3>
+    @if (Model.Project.AssignablePeople.Count == 0)
+    {
+        <p class="text-muted">
+            Everyone in the organisation is already assigned.
+            <a asp-page="/People/Index">Add another person</a> to assign someone new.
+        </p>
+    }
+    else
+    {
+        <form method="post" asp-page-handler="Assign" class="row g-2 align-items-end">
+            <div class="col-md-6">
+                <label for="personIds" class="form-label">People</label>
+                <select id="personIds" name="personIds" class="form-select" multiple size="6">
+                    @foreach (var person in Model.Project.AssignablePeople)
+                    {
+                        <option value="@person.Id">@person.FullName — @person.Email.Value</option>
+                    }
+                </select>
+                <div class="form-text">Hold Ctrl (or Cmd) to pick more than one.</div>
+            </div>
+            <div class="col-md-6">
+                <button type="submit" class="btn btn-primary">Assign to project</button>
+            </div>
+        </form>
+    }
+}

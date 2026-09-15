@@ -585,8 +585,8 @@ All arc42 sections below are currently unpopulated placeholder templates.
 
 | #   | Question                                                                                                     | Owner | Status | Resolution                                                                                                      |
 | --- | -------------------------------------------------------------------------------------------------------------- | ----- | ------ | ------------------------------------------------------------------------------------------------------------------ |
-| 1   | How is the current user established and signed in? FR-022 and NFR-005 depend on it.                            | stijn | Open   | Inherited from spec 001 §10 Q1. Needs a new story in the map, or an explicit decision to stub the current user.     |
-| 2   | Spec 001 still defines `Hours` as a 2-decimal number, which `hh:mm` entry breaks.                              | stijn | Open   | Agreed in principle (§5.3). Requires editing spec 001 §5.1 and §5.3 to make budgets minute-backed before build starts. |
+| 1   | How is the current user established and signed in? FR-022 and NFR-005 depend on it.                            | stijn | **Deferred** | Inherited from spec 001 §10 Q1, which is now stubbed behind `ICurrentUser` ([ADR-0004](../architecture/adr/0004-stubbed-identity-until-authentication-lands.md)). A real authentication story is still needed. |
+| 2   | Spec 001 still defines `Hours` as a 2-decimal number, which `hh:mm` entry breaks.                              | stijn | **Resolved 2026-09-15** | Done. Spec 001 §5.1 and §5.3 now define `budgetMinutes: Duration`, and `Duration` is implemented as a whole-minute value object in `Domain/Duration.cs`. Rationale in [ADR-0003](../architecture/adr/0003-durations-as-whole-minutes.md). |
 
 ---
 
