@@ -14,14 +14,15 @@ builder.Services.AddDbContext<TimeRegistrationDbContext>(options =>
 builder.Services.AddSingleton(TimeProvider.System);
 
 // No authentication story exists yet (spec 001 §10 Q1), so the current user is a dev-only stub
-// driven by the role switcher in the layout. Swap this one registration when auth lands.
+// driven by the person switcher in the layout. Swap this one registration when auth lands.
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ICurrentUser, DevRoleSwitchCurrentUser>();
+builder.Services.AddScoped<ICurrentUser, DevUserSwitchCurrentUser>();
 
 builder.Services.AddScoped<ClientService>();
 builder.Services.AddScoped<PersonService>();
 builder.Services.AddScoped<ProjectService>();
 builder.Services.AddScoped<AssignmentService>();
+builder.Services.AddScoped<TimesheetService>();
 
 var app = builder.Build();
 

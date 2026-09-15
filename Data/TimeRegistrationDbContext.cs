@@ -18,6 +18,8 @@ public class TimeRegistrationDbContext(DbContextOptions<TimeRegistrationDbContex
 
     public DbSet<TimesheetWeek> TimesheetWeeks => Set<TimesheetWeek>();
 
+    public DbSet<WeekRow> WeekRows => Set<WeekRow>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Client>(client =>
@@ -106,6 +108,11 @@ public class TimeRegistrationDbContext(DbContextOptions<TimeRegistrationDbContex
 
             // Burned hours is a per-project aggregate on every project-list render (NFR-001).
             entry.HasIndex(e => e.ProjectId);
+
+            // One person's five days, which is what the weekly grid and every day save read
+            // (spec 005 NFR-001, NFR-002). The unique index above leads with PersonId but puts
+            // ProjectId before Date, so it cannot serve a date range.
+            entry.HasIndex(e => new { e.PersonId, e.Date });
         });
 
         modelBuilder.Entity<TimesheetWeek>(week =>
@@ -120,6 +127,28 @@ public class TimeRegistrationDbContext(DbContextOptions<TimeRegistrationDbContex
                 .OnDelete(DeleteBehavior.Restrict);
 
             week.HasIndex(w => new { w.PersonId, w.WeekStartDate }).IsUnique();
+        });
+
+        modelBuilder.Entity<WeekRow>(row =>
+        {
+            row.HasKey(r => r.Id);
+
+            row.HasOne(r => r.Person)
+                .WithMany()
+                .HasForeignKey(r => r.PersonId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Restrict);
+
+            row.HasOne(r => r.Project)
+                .WithMany()
+                .HasForeignKey(r => r.ProjectId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Two tabs adding the same project to the same week is the case the index, not the
+            // service, has to survive (spec 005 FR-006, SC-006). The leading (PersonId,
+            // WeekStartDate) pair is also exactly how the grid reads its rows.
+            row.HasIndex(r => new { r.PersonId, r.WeekStartDate, r.ProjectId }).IsUnique();
         });
     }
 }

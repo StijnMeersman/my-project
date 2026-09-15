@@ -1,0 +1,276 @@
+@page
+@model my_project.Pages.Timesheet.IndexModel
+@{
+    ViewData["Title"] = "My week";
+    var week = Model.Timesheet;
+    var summary = ViewData.ModelState[string.Empty]?.Errors.Select(e => e.ErrorMessage).ToList() ?? [];
+}
+
+<h1>My week</h1>
+
+@if (week is null)
+{
+    <div class="alert alert-warning" role="alert">
+        Hours belong to a person, and nobody is signed in yet. Pick someone in the switcher above, or
+        <a asp-page="/People/Index">add a person</a> first.
+    </div>
+}
+else
+{
+    <p class="text-muted">
+        @week.PersonName — the week of <strong>@week.WeekStart.ToString("d MMMM yyyy")</strong>.
+        Each row shows what the whole project has left of its budget, counted across everyone.
+    </p>
+
+    <nav class="d-flex align-items-center gap-2 mb-3" aria-label="Week navigation">
+        <a class="btn btn-outline-secondary btn-sm" asp-page="/Timesheet/Index"
+           asp-route-week="@week.PreviousWeek.ToString("yyyy-MM-dd")">&larr; Previous week</a>
+        <a class="btn btn-outline-secondary btn-sm" asp-page="/Timesheet/Index"
+           asp-route-week="@week.NextWeek.ToString("yyyy-MM-dd")">Next week &rarr;</a>
+        @if (!week.IsCurrentWeek)
+        {
+            <a class="btn btn-link btn-sm" asp-page="/Timesheet/Index">This week</a>
+        }
+    </nav>
+
+    @if (!week.IsEditable)
+    {
+        @* FR-023, SC-003: readable, but a week that has not started yet cannot be filled in. *@
+        <div class="alert alert-info" role="status">
+            This week has not started yet. You can look at it, but hours and rows can only be added
+            once it begins.
+        </div>
+    }
+
+    @if (Model.Confirmation is { } confirmation)
+    {
+        <div class="alert alert-success" role="status">@confirmation</div>
+    }
+
+    @if (Model.Warning is { } warning)
+    {
+        @* FR-015, SC-016: a long day is reported, never refused. *@
+        <div class="alert alert-warning" role="alert">@warning</div>
+    }
+
+    @if (summary.Count > 0)
+    {
+        <div class="alert alert-danger" role="alert">
+            <ul class="mb-0">
+                @foreach (var message in summary)
+                {
+                    <li>@message</li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (!week.HasAnyAssignment)
+    {
+        @* EC-1: a grid with no rows and no explanation would be worse than no grid. *@
+        <div class="alert alert-light border" role="status">
+            You are not assigned to any projects yet, so there is nothing to log hours against. A
+            manager assigns people on a <a asp-page="/Projects/Index">project's page</a>.
+        </div>
+    }
+    else
+    {
+        @if (week.Rows.Count == 0)
+        {
+            @* EC-2: a distinct state from "rows added, no hours yet". *@
+            <div class="alert alert-light border" role="status">
+                No projects on this week yet. Add the ones you actually worked on below.
+            </div>
+        }
+        else
+        {
+            <form method="post" id="grid">
+                <input type="hidden" name="week" value="@week.WeekStart.ToString("yyyy-MM-dd")" />
+
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle ts-grid">
+                        <caption class="visually-hidden">
+                            Projects by weekday, with each project's remaining budget
+                        </caption>
+                        <thead>
+                            <tr>
+                                <th scope="col" class="ts-project">Project</th>
+                                @foreach (var day in week.Days)
+                                {
+                                    <th scope="col" class="text-center">
+                                        @Week.NameOfDay(day)<br />
+                                        <span class="fw-normal text-muted small">@day.ToString("d MMM")</span>
+                                    </th>
+                                }
+                                <th scope="col" class="text-end">Remaining</th>
+                                @if (week.IsEditable)
+                                {
+                                    <th scope="col"><span class="visually-hidden">Remove row</span></th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{ var cellIndex = 0; }
+                            @foreach (var row in week.Rows)
+                            {
+                                var editable = row.IsEditable(week.IsEditable);
+                                <tr class="@RowClass(row.Budget.Status)">
+                                    <th scope="row" class="fw-normal ts-project">
+                                        <a asp-page="/Projects/Details" asp-route-id="@row.ProjectId">@row.ProjectName</a>
+                                        <div class="text-muted small">@row.ClientName</div>
+                                        @if (!row.IsAssigned)
+                                        {
+                                            @* FR-009, SC-010: the hours stay; the row stops taking new ones. *@
+                                            <span class="badge text-bg-secondary">No longer assigned</span>
+                                        }
+                                        @if (row.Budget.Status != BudgetStatus.WithinBudget)
+                                        {
+                                            <span class="badge @BadgeClass(row.Budget.Status)">@BadgeText(row.Budget.Status)</span>
+                                        }
+                                    </th>
+
+                                    @foreach (var cell in row.Cells)
+                                    {
+                                        var posted = Model.Posted(row.ProjectId, cell.Date);
+                                        var hours = posted?.Hours ?? cell.Hours;
+                                        var note = posted?.Note ?? cell.Note;
+                                        var label = $"{row.ProjectName} on {cell.Date:dddd d MMMM}";
+
+                                        // A cell failure belongs to the one day the rejected save was
+                                        // committing, not to the whole row (EC-8).
+                                        var onSavedDay = Model.SavedDay == cell.Date;
+                                        var hoursError = onSavedDay ? Model.HoursError(row.ProjectId) : null;
+                                        var noteError = onSavedDay ? Model.NoteError(row.ProjectId) : null;
+
+                                        <td class="ts-cell" data-day="@cell.Date.ToString("yyyy-MM-dd")"
+                                            data-day-name="@Week.NameOfDay(cell.Date)">
+                                            @if (editable)
+                                            {
+                                                <input type="hidden" name="Cells[@cellIndex].ProjectId" value="@row.ProjectId" />
+                                                <input type="hidden" name="Cells[@cellIndex].Date" value="@cell.Date.ToString("yyyy-MM-dd")" />
+                                                <input type="text" name="Cells[@cellIndex].Hours" value="@hours"
+                                                       class="form-control form-control-sm font-monospace text-end ts-hours @(hoursError is null ? null : "is-invalid")"
+                                                       placeholder="hh:mm" autocomplete="off" aria-label="Hours for @label" />
+                                                <input type="text" name="Cells[@cellIndex].Note" value="@note"
+                                                       class="form-control form-control-sm ts-note @(noteError is null ? null : "is-invalid")"
+                                                       placeholder="note" autocomplete="off" aria-label="Note for @label" />
+                                                @if (hoursError is not null)
+                                                {
+                                                    <div class="invalid-feedback d-block small">@hoursError</div>
+                                                }
+                                                @if (noteError is not null)
+                                                {
+                                                    <div class="invalid-feedback d-block small">@noteError</div>
+                                                }
+                                                cellIndex++;
+                                            }
+                                            else
+                                            {
+                                                <div class="font-monospace text-end">@(cell.HasHours ? cell.Hours : "—")</div>
+                                                @if (cell.HasNote)
+                                                {
+                                                    <div class="small text-muted text-truncate" title="@cell.Note">@cell.Note</div>
+                                                }
+                                            }
+                                        </td>
+                                    }
+
+                                    <td class="text-end font-monospace @(row.Budget.RemainingMinutes < 0 ? "text-danger fw-bold" : null)">
+                                        @Duration.ToHhMm(row.Budget.RemainingMinutes)
+                                    </td>
+
+                                    @if (week.IsEditable)
+                                    {
+                                        <td class="text-end">
+                                            @* FR-008: refused server-side when the row has hours this week. *@
+                                            <button type="submit" asp-page-handler="RemoveRow"
+                                                    name="projectId" value="@row.ProjectId"
+                                                    class="btn btn-sm btn-outline-danger">
+                                                Remove<span class="visually-hidden"> @row.ProjectName from this week</span>
+                                            </button>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                        @if (week.IsEditable)
+                        {
+                            <tfoot>
+                                <tr>
+                                    <td class="ts-project text-muted small">
+                                        A day is checked and committed whole — save one column at a time.
+                                    </td>
+                                    @foreach (var day in week.Days)
+                                    {
+                                        <td class="text-center">
+                                            <button type="submit" asp-page-handler="SaveDay"
+                                                    name="day" value="@day.ToString("yyyy-MM-dd")"
+                                                    class="btn btn-sm btn-primary w-100">
+                                                Save @Week.NameOfDay(day)
+                                            </button>
+                                        </td>
+                                    }
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                        }
+                    </table>
+                </div>
+            </form>
+
+            <p class="text-muted small">
+                Hours are <code>hh:mm</code> — <code>7:30</code>, or <code>7</code> for seven hours.
+                Clear a cell and save its day to delete what was there. A negative remaining figure is
+                an overrun.
+            </p>
+        }
+
+        @if (week.IsEditable)
+        {
+            <h2 class="h5 mt-4">Add a project to this week</h2>
+            @if (week.AddableProjects.Count == 0)
+            {
+                <p class="text-muted">Every project you are assigned to is already on this week.</p>
+            }
+            else
+            {
+                @* FR-005, SC-005: only projects this person is currently assigned to are offered. *@
+                <form method="post" asp-page-handler="AddRow" class="row g-2 align-items-end" id="add-row">
+                    <input type="hidden" name="week" value="@week.WeekStart.ToString("yyyy-MM-dd")" />
+                    <div class="col-md-5">
+                        <label for="projectId" class="form-label">Project</label>
+                        <select id="projectId" name="projectId" class="form-select">
+                            @foreach (var project in week.AddableProjects)
+                            {
+                                <option value="@project.ProjectId">@project.ProjectName — @project.ClientName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-outline-primary">Add row</button>
+                    </div>
+                </form>
+            }
+        }
+    }
+}
+
+@functions {
+    // Matches the project list exactly, because it is the same figure and the same rule (FR-021).
+    static string? RowClass(BudgetStatus status) => status switch
+    {
+        BudgetStatus.OverBudget => "table-danger",
+        BudgetStatus.ApproachingBudget => "table-warning",
+        _ => null,
+    };
+
+    static string BadgeClass(BudgetStatus status) =>
+        status == BudgetStatus.OverBudget ? "text-bg-danger" : "text-bg-warning";
+
+    static string BadgeText(BudgetStatus status) =>
+        status == BudgetStatus.OverBudget ? "Over budget" : "Approaching budget";
+}
+
+@section Scripts {
+    <script src="~/js/timesheet.js" asp-append-version="true"></script>
+}

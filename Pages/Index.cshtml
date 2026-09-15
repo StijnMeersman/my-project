@@ -12,6 +12,7 @@
 
 @if (CurrentUser.IsManager)
 {
+    <p><a asp-page="/Timesheet/Index" class="btn btn-primary">My week</a></p>
     <p class="text-muted">Setting up work takes three steps, in this order:</p>
     <div class="row g-3">
         <div class="col-md-4">
@@ -39,9 +40,12 @@
 }
 else
 {
-    <p><a asp-page="/Projects/Index" class="btn btn-primary">See projects</a></p>
+    <p class="d-flex gap-2">
+        <a asp-page="/Timesheet/Index" class="btn btn-primary">My week</a>
+        <a asp-page="/Projects/Index" class="btn btn-outline-secondary">See projects</a>
+    </p>
     <p class="text-muted">
-        Setting up clients, people and projects is a manager's job. Logging your own hours comes with
-        a later story.
+        Fill in your week a day at a time — each row shows what the project has left of its budget as
+        you go. Setting up clients, people and projects is a manager's job.
     </p>
 }
