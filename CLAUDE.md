@@ -30,6 +30,12 @@ The two custom tools are meant to be run in order, and the numbering links them:
 
 Neither `docs/product/` nor `docs/specs/` exists yet; both are created on first use.
 
+## GitHub issues
+
+Whenever issues come up — creating, reading, searching, commenting, updating, closing — **use the GitHub MCP server** (`mcp__github__*` tools), not the `gh` CLI or the web UI.
+
+The target repository is always **https://github.com/StijnMeersman/my-project** (`owner: StijnMeersman`, `repo: my-project`) unless the user names a different one explicitly.
+
 ## Architecture documentation
 
 `docs/architecture/` holds the full **arc42** skeleton (sections 01–12, indexed by `00-table-of-contents.md`). Every section is currently an empty template with placeholder tables and HTML comments. Specs are expected to *reference* arc42 sections rather than duplicate them — project-wide quality requirements belong in `10-quality-requirements.md`, feature-specific NFRs in the spec. ADRs go under `docs/architecture/adr/`, logged in the table in `09-architecture-decisions.md`.
